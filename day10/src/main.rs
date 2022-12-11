@@ -54,7 +54,7 @@ fn draw_display(instructions: &[Instruction]) -> i32 {
     let states = run_instructions(instructions);
     println!("{}", states.len());
 
-    let display_columns = 40usize;
+    const display_columns: usize = 40;
 
     let display: String = states
         .iter()
@@ -71,7 +71,7 @@ fn draw_display(instructions: &[Instruction]) -> i32 {
 
     display
         .as_bytes()
-        .chunks(40)
+        .chunks(display_columns)
         .for_each(|row| println!("{}", String::from_utf8(row.to_vec()).unwrap()));
 
     0
