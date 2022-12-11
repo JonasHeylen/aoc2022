@@ -54,14 +54,14 @@ fn draw_display(instructions: &[Instruction]) -> i32 {
     let states = run_instructions(instructions);
     println!("{}", states.len());
 
-    const display_columns: usize = 40;
+    const DISPLAY_COLUMNS: usize = 40;
 
     let display: String = states
         .iter()
         .map(|s| s.x)
         .enumerate()
         .map(|(cycle, x)| {
-            if ((cycle % display_columns) as i32 - x).abs() <= 1 {
+            if ((cycle % DISPLAY_COLUMNS) as i32 - x).abs() <= 1 {
                 '#'
             } else {
                 ' '
@@ -71,7 +71,7 @@ fn draw_display(instructions: &[Instruction]) -> i32 {
 
     display
         .as_bytes()
-        .chunks(display_columns)
+        .chunks(DISPLAY_COLUMNS)
         .for_each(|row| println!("{}", String::from_utf8(row.to_vec()).unwrap()));
 
     0

@@ -6,29 +6,28 @@ use regex::Regex;
 const INPUT: &str = include_str!("../input.txt");
 
 fn main() {
-    let mut monkeys = parse_input(INPUT);
-    let modulus = monkey_modulus(&monkeys);
-    println!("{:#?}", monkeys);
-    let result_part1 = run_part1(&mut monkeys, modulus);
+    let result_part1 = run_part1(INPUT);
     println!("Part 1: {result_part1}");
-    let result_part2 = run_part2(&mut monkeys, modulus);
+    let result_part2 = run_part2(INPUT);
     println!("Part 2: {result_part2}")
 }
 
-fn monkey_modulus(monkeys: &Vec<Monkey>) -> Item {
-    monkeys.iter().map(|m| m.test_divisible_by).reduce(|acc, x| acc * x).unwrap()
+fn monkey_modulus(monkeys: &[Monkey]) -> Item {
+    monkeys.iter().map(|m| m.test_divisible_by).product()
 }
 
-fn run_part1(monkeys: &mut Vec<Monkey>, modulus: Item) -> u64 {
-    run(monkeys, 20, true, modulus)
+fn run_part1(input: &str) -> u64 {
+    run(input, 20, true)
 }
 
-fn run_part2(monkeys: &mut Vec<Monkey>, modulus: Item) -> u64 {
-    run(monkeys, 10000, false, modulus)
+fn run_part2(input: &str) -> u64 {
+    run(input, 10000, false)
 }
 
-fn run(monkeys: &mut Vec<Monkey>, turns: usize, divide_by_three: bool, modulus: Item) -> u64 {
-    for _turn in 0..turns {
+fn run(input: &str, rounds: usize, divide_by_three: bool) -> u64 {
+    let mut monkeys = parse_input(input);
+    let modulus = monkey_modulus(&monkeys);
+    for _round in 0..rounds {
         for i in 0..monkeys.len() {
             // iterate using index to avoid mutable borrowing
             let throws = monkeys[i].inspect_and_throw_items(divide_by_three, modulus);
@@ -36,9 +35,25 @@ fn run(monkeys: &mut Vec<Monkey>, turns: usize, divide_by_three: bool, modulus: 
                 monkeys[monkey_id].catch_item(item);
             }
         }
+
+        // if (_round + 1) % 1000 == 0 {
+        //     eprintln!(
+        //         "After round {}\n{}\n",
+        //         _round + 1,
+        //         monkeys
+        //             .iter()
+        //             .enumerate()
+        //             .map(|(i, m)| format!(
+        //                 "Monkey {} inspected {} items and holds {:?}",
+        //                 i, m.inspection_count, m.queue
+        //             ))
+        //             .join("\n")
+        //     )
+        // }
     }
 
-    calculate_monkey_business_level(monkeys)
+    // println!("{:#?}", monkeys);
+    calculate_monkey_business_level(&monkeys)
 }
 
 fn calculate_monkey_business_level(monkeys: &[Monkey]) -> u64 {
@@ -47,11 +62,7 @@ fn calculate_monkey_business_level(monkeys: &[Monkey]) -> u64 {
         .map(|monkey| monkey.inspection_count)
         .collect();
     inspection_counts.sort_by(|a, b| b.cmp(a));
-    inspection_counts
-        .into_iter()
-        .take(2)
-        .reduce(|acc, cnt| acc * cnt)
-        .unwrap()
+    inspection_counts.into_iter().take(2).product()
 }
 
 type Item = u64;
@@ -65,18 +76,13 @@ enum Operation {
 }
 
 impl Operation {
-    fn execute(&self, x: Item, modulus: Item) -> Item {
+    fn execute(&self, x: Item) -> Item {
         match self {
             Self::Add(y) => x + y,
-            Self::Multiply(y) => mul_mod(x, *y, modulus),
-            Self::Square => mul_mod(x, x, modulus),
+            Self::Multiply(y) => x * y,
+            Self::Square => x * x,
         }
     }
-}
-
-fn mul_mod(a: u64, b: u64, m: u64) -> u64 {
-    let (a, b, m) = (a as u128, b as u128, m as u128);
-    ((a * b) % m) as u64
 }
 
 #[derive(Clone, Debug)]
@@ -90,18 +96,21 @@ struct Monkey {
 }
 
 impl Monkey {
-    fn inspect_and_throw_items(&mut self, divide_by_three: bool, modulus: Item) -> Vec<(MonkeyId, Item)> {
+    fn inspect_and_throw_items(
+        &mut self,
+        divide_by_three: bool,
+        modulus: Item,
+    ) -> Vec<(MonkeyId, Item)> {
         let mut throws = vec![];
         while let Some(item) = self.queue.pop_front() {
             self.inspection_count += 1;
-            let item_after_inspection = self.operation.execute(item, modulus);
+            let item_after_inspection = self.operation.execute(item);
             let item_after_adjustment = if divide_by_three {
                 item_after_inspection / 3
             } else {
-                item_after_inspection
+                item_after_inspection % modulus
             };
-            if item_after_adjustment % self.test_divisible_by == 0
-            {
+            if item_after_adjustment % self.test_divisible_by == 0 {
                 throws.push((self.if_true_throw_to, item_after_adjustment));
             } else {
                 throws.push((self.if_false_throw_to, item_after_adjustment));
@@ -120,36 +129,36 @@ fn parse_input(input: &str) -> Vec<Monkey> {
         .lines()
         .chunks(7)
         .into_iter()
-        .flat_map(|monkey_lines| parse_monkey(&monkey_lines.collect_vec()))
+        .map(|monkey_lines| parse_monkey(&monkey_lines.collect_vec()))
         .collect()
 }
 
 // ugly monkey parser
-fn parse_monkey(input: &[&str]) -> Option<Monkey> {
+fn parse_monkey(input: &[&str]) -> Monkey {
     let initial_items = parse_numbers(input[1]);
     let line2 = parse_numbers(input[2]);
-    let operation = line2.get(0).map_or(Operation::Square, |&operand| {
-        if input[2].contains("+") {
+    let operation = line2.first().map_or(Operation::Square, |&operand| {
+        if input[2].contains('+') {
             Operation::Add(operand)
         } else {
             Operation::Multiply(operand)
         }
     });
     let line3 = parse_numbers(input[3]);
-    let test = line3.get(0).expect("Division test not found");
+    let test_divisible_by = *line3.first().expect("Division test not found");
     let line4 = parse_numbers(input[4]);
-    let if_true = line4.get(0).expect("If true not found");
+    let if_true_throw_to = *line4.first().expect("If true not found");
     let line5 = parse_numbers(input[5]);
-    let if_false = line5.get(0).expect("If false not found");
+    let if_false_throw_to = *line5.first().expect("If false not found");
 
-    Some(Monkey {
+    Monkey {
         queue: VecDeque::from(initial_items),
         inspection_count: 0,
-        operation: operation,
-        test_divisible_by: *test,
-        if_true_throw_to: *if_true,
-        if_false_throw_to: *if_false,
-    })
+        operation,
+        test_divisible_by,
+        if_true_throw_to,
+        if_false_throw_to,
+    }
 }
 
 fn parse_numbers<T: FromStr>(input: &str) -> Vec<T> {
@@ -175,17 +184,16 @@ mod tests {
 
     #[test]
     fn test_input_part1() {
-        let mut monkeys = parse_input(INPUT_TEST);
-        let modulus = monkey_modulus(&monkeys);
-        eprintln!("{:#?}", monkeys);
-        assert_eq!(run_part1(&mut monkeys, modulus), 10605);
+        assert_eq!(run_part1(INPUT_TEST), 10605);
+    }
+
+    #[test]
+    fn test_real_input_part1() {
+        assert_eq!(run_part1(INPUT), 98280);
     }
 
     #[test]
     fn test_input_part2() {
-        let mut monkeys = parse_input(INPUT_TEST);
-        let modulus = monkey_modulus(&monkeys);
-        eprintln!("{:#?}", monkeys);
-        assert_eq!(run_part2(&mut monkeys, modulus), 2713310158);
+        assert_eq!(run_part2(INPUT_TEST), 2713310158);
     }
 }
