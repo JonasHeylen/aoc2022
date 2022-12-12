@@ -77,18 +77,34 @@ fn run_part1(input: &[u8]) -> usize {
     grid.set_start_and_end_elevation();
     let start_pos = grid.start;
     let end_pos = grid.end;
-    find_distance(&mut grid, start_pos, end_pos).unwrap()
+    find_distance(
+        &mut grid,
+        start_pos,
+        |pos, _| pos == end_pos,
+        |elev, elev_next| elev_next <= elev + 1,
+    )
+    .unwrap()
 }
 
 fn run_part2(input: &[u8]) -> usize {
     let mut grid = Grid::from_bytes(input);
     grid.set_start_and_end_elevation();
     let start_pos = grid.end;
-    // update_distance(&mut grid, start_pos, 0, b'z');
-    123
+    find_distance(
+        &mut grid,
+        start_pos,
+        |_, elevation| elevation == b'a',
+        |elev, elev_next| elev_next >= elev - 1,
+    )
+    .unwrap()
 }
 
-fn find_distance(grid: &mut Grid, start: Pos, end: Pos) -> Option<usize> {
+fn find_distance(
+    grid: &mut Grid,
+    start: Pos,
+    end: impl Fn(Pos, u8) -> bool,
+    step_allowed: impl Fn(u8, u8) -> bool,
+) -> Option<usize> {
     let mut ends = VecDeque::new();
     ends.push_back(start);
     grid.set_distance(start, 0);
@@ -104,10 +120,11 @@ fn find_distance(grid: &mut Grid, start: Pos, end: Pos) -> Option<usize> {
             {
                 let new_pos = (new_pos.0 as usize, new_pos.1 as usize);
                 let distance = grid.distance(pos) + 1;
+                let new_elevation = grid.elevation(new_pos);
                 if grid.distance(new_pos) > distance
-                    && grid.elevation(new_pos) <= grid.elevation(pos) + 1
+                    && step_allowed(grid.elevation(pos), new_elevation)
                 {
-                    if new_pos == end {
+                    if end(new_pos, new_elevation) {
                         return Some(distance);
                     } else {
                         grid.set_distance(new_pos, distance);
@@ -133,6 +150,6 @@ mod tests {
 
     #[test]
     fn test_input_part2() {
-        assert_eq!(run_part2(INPUT_TEST), 0);
+        assert_eq!(run_part2(INPUT_TEST), 29);
     }
 }
