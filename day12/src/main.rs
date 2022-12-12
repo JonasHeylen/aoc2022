@@ -1,4 +1,4 @@
-use std::time::Instant;
+use std::{collections::VecDeque, time::Instant};
 
 const INPUT: &[u8] = include_bytes!("../input.txt");
 
@@ -21,7 +21,7 @@ impl Grid {
         let start = Grid::index_to_pos(cols, elevations.iter().position(|&b| b == b'S').unwrap());
         let end = Grid::index_to_pos(cols, elevations.iter().position(|&b| b == b'E').unwrap());
         Self {
-            elevations: elevations.iter().cloned().collect(),
+            elevations: elevations.to_vec(),
             distances: vec![vec![usize::MAX; rows]; cols],
             cols,
             rows,
@@ -76,33 +76,24 @@ fn run_part1(input: &[u8]) -> usize {
     let mut grid = Grid::from_bytes(input);
     grid.set_start_and_end_elevation();
     let start_pos = grid.start;
-    update_distance(&mut grid, start_pos, 0, b'a');
-    grid.distance(grid.end) - 1
+    let end_pos = grid.end;
+    find_distance(&mut grid, start_pos, end_pos).unwrap()
 }
 
 fn run_part2(input: &[u8]) -> usize {
     let mut grid = Grid::from_bytes(input);
     grid.set_start_and_end_elevation();
     let start_pos = grid.end;
-    update_distance(&mut grid, start_pos, 0, b'z');
-    0
+    // update_distance(&mut grid, start_pos, 0, b'z');
+    123
 }
 
-fn update_distance(grid: &mut Grid, pos: Pos, prev_distance: usize, prev_elevation: u8) {
-    let elevation = grid.elevation(pos);
-    let distance = prev_distance + 1;
-    #[cfg(test)]
-    {
-        println!("update distance for {:?}", pos);
-        println!(
-            "prev elevation: {}, current elevation {}",
-            prev_elevation, elevation
-        );
-        println!("prev dist: {}, current dist {}", prev_distance, distance);
-    }
-    if grid.distance(pos) > distance && elevation <= prev_elevation + 1 {
-        grid.set_distance(pos, distance);
+fn find_distance(grid: &mut Grid, start: Pos, end: Pos) -> Option<usize> {
+    let mut ends = VecDeque::new();
+    ends.push_back(start);
+    grid.set_distance(start, 0);
 
+    while let Some(pos) = ends.pop_front() {
         let steps = [(1, 0), (-1, 0), (0, 1), (0, -1)];
         for step in steps {
             let new_pos = (pos.0 as i32 + step.0, pos.1 as i32 + step.1);
@@ -112,10 +103,21 @@ fn update_distance(grid: &mut Grid, pos: Pos, prev_distance: usize, prev_elevati
                 || new_pos.1 >= grid.rows as i32)
             {
                 let new_pos = (new_pos.0 as usize, new_pos.1 as usize);
-                update_distance(grid, new_pos, distance, elevation);
+                let distance = grid.distance(pos) + 1;
+                if grid.distance(new_pos) > distance
+                    && grid.elevation(new_pos) <= grid.elevation(pos) + 1
+                {
+                    if new_pos == end {
+                        return Some(distance);
+                    } else {
+                        grid.set_distance(new_pos, distance);
+                        ends.push_back(new_pos);
+                    }
+                }
             }
         }
     }
+    None
 }
 
 #[cfg(test)]
