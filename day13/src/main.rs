@@ -1,5 +1,4 @@
 use std::cmp::Ordering;
-use std::ops::ControlFlow;
 use std::time::Instant;
 
 use nom::branch::alt;
@@ -11,58 +10,45 @@ use nom::IResult;
 
 const INPUT: &str = include_str!("../input.txt");
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Eq)]
 enum Elem {
     Int(i32),
     List(Vec<Elem>),
 }
 
-impl Elem {
-    fn comes_before(&self, other: &Elem) -> bool {
-        match self.comes_before_inner(other) {
-            ControlFlow::Break(result) => result,
-            _ => panic!("No order defined"),
-        }
-    }
-
-    fn comes_before_inner(&self, other: &Elem) -> ControlFlow<bool> {
-        match (self, other) {
-            (Elem::Int(a), Elem::Int(b)) => {
-                if a == b {
-                    ControlFlow::Continue(())
-                } else {
-                    ControlFlow::Break(a < b)
-                }
-            }
-            (Elem::List(aa), Elem::List(bb)) => match (aa.first(), bb.first()) {
-                (Some(a), Some(b)) => match a.comes_before_inner(b) {
-                    ControlFlow::Break(result) => ControlFlow::Break(result),
-                    ControlFlow::Continue(()) => Elem::List((aa[1..]).to_vec())
-                        .comes_before_inner(&Elem::List((bb[1..]).to_vec())),
-                },
-                (None, Some(_)) => ControlFlow::Break(true),
-                (Some(_), None) => ControlFlow::Break(false),
-                (None, None) => ControlFlow::Continue(()),
-            },
-            (aa @ Elem::List(_), b @ Elem::Int(_)) => {
-                aa.comes_before_inner(&Elem::List(vec![b.clone()]))
-            }
-            (a @ Elem::Int(_), bb @ Elem::List(_)) => {
-                Elem::List(vec![a.clone()]).comes_before_inner(bb)
-            }
-        }
+impl PartialEq for Elem {
+    fn eq(&self, other: &Self) -> bool {
+        self.cmp(other).is_eq()
     }
 }
 
-// impl Ord for Elem {
-//     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-//         match self.comes_before_inner(other) {
-//             ControlFlow::Break(false) => std::cmp::Ordering::Greater,
-//             ControlFlow::Break(true) => std::cmp::Ordering::Less,
-//             ControlFlow::Continue(()) => std::cmp::Ordering::Equal,
-//         }
-//     }
-// }
+impl PartialOrd for Elem {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for Elem {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        match (self, other) {
+            (Elem::Int(a), Elem::Int(b)) => a.cmp(b),
+            (Elem::List(aa), Elem::List(bb)) => match (aa.first(), bb.first()) {
+                (Some(a), Some(b)) => {
+                    if a == b {
+                        Elem::List(aa[1..].to_vec()).cmp(&Elem::List(bb[1..].to_vec()))
+                    } else {
+                        a.cmp(b)
+                    }
+                }
+                (None, Some(_)) => Ordering::Less,
+                (Some(_), None) => Ordering::Greater,
+                (None, None) => Ordering::Equal,
+            },
+            (aa @ Elem::List(_), b @ Elem::Int(_)) => aa.cmp(&Elem::List(vec![b.clone()])),
+            (a @ Elem::Int(_), bb @ Elem::List(_)) => Elem::List(vec![a.clone()]).cmp(bb),
+        }
+    }
+}
 
 fn main() {
     let start_part1 = Instant::now();
@@ -81,7 +67,7 @@ fn run_part1(input: &str) -> usize {
     packet_pairs
         .iter()
         .enumerate()
-        .filter_map(|(i, (a, b))| a.comes_before(b).then_some(i + 1))
+        .filter_map(|(i, (a, b))| (a < b).then_some(i + 1))
         .sum()
 }
 
@@ -96,14 +82,7 @@ fn run_part2(input: &str) -> usize {
         .flat_map(|(a, b)| vec![a, b])
         .chain(divider_packets.iter().cloned())
         .collect();
-    all_packets.sort_by(|a, b| {
-        if a.comes_before(b) {
-            Ordering::Less
-        } else {
-            Ordering::Greater
-        }
-    });
-
+    all_packets.sort();
     all_packets
         .iter()
         .enumerate()
