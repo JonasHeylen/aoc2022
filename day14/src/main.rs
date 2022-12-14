@@ -116,11 +116,11 @@ impl Grid {
 
     fn draw_line(&mut self, from: Point, to: Point, elem: Elem) {
         if from.0 == to.0 {
-            for y in from.1.min(to.1)..from.1.max(to.1) + 1 {
+            for y in from.1.min(to.1)..=from.1.max(to.1) {
                 self.set_cell(Point(from.0, y), elem);
             }
         } else {
-            for x in from.0.min(to.0)..from.0.max(to.0) + 1 {
+            for x in from.0.min(to.0)..=from.0.max(to.0) {
                 self.set_cell(Point(x, from.1), elem);
             }
         }
@@ -178,7 +178,7 @@ fn run_part1(input: &str) -> usize {
     while let Some(_final_pos) = drop_sand(&mut grid, sand_origin) {
         sand_counter += 1;
     }
-    println!("{}", grid);
+    // println!("{}", grid);
 
     sand_counter
 }
@@ -204,7 +204,7 @@ fn run_part2(input: &str) -> usize {
             break;
         }
     }
-    println!("{}", grid);
+    // println!("{}", grid);
 
     sand_counter
 }
