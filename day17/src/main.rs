@@ -2,7 +2,16 @@ use std::time::Instant;
 
 const INPUT: &str = include_str!("../input.txt");
 
-fn run_part1<const N: usize>(input: &str) -> Vec<i64> {
+fn max_height(cols: &Vec<Vec<bool>>) -> i64 {
+    let first_trues: Vec<_> = cols
+        .iter()
+        .map(|col| col.iter().rev().position(|p| *p).map_or(0, |y| col.len() - y))
+        .collect();
+
+    first_trues.into_iter().max().unwrap() as i64
+}
+
+fn run_part1<const N: usize>(input: &str) -> Vec<Vec<bool>> {
     let blocks: Vec<Vec<(i64, i64)>> = vec![
         vec![(0, 0), (1, 0), (2, 0), (3, 0)],         // ----
         vec![(1, 0), (0, 1), (1, 1), (2, 1), (1, 2)], // +
@@ -13,9 +22,9 @@ fn run_part1<const N: usize>(input: &str) -> Vec<i64> {
 
     let mut blocks_fallen = 0;
     let mut jet_ix = 0;
-    let mut pos: (i64, i64) = (2, 4);
+    let mut pos: (i64, i64) = (2, 3);
 
-    let mut cols: Vec<i64> = vec![0; 7];
+    let mut cols: Vec<Vec<bool>> = vec![vec![false; N * 4 + 3]; 7]; // worst case height is N * 4
 
     loop {
         if blocks_fallen == N {
@@ -23,7 +32,7 @@ fn run_part1<const N: usize>(input: &str) -> Vec<i64> {
         }
 
         let block = &blocks[blocks_fallen % blocks.len()];
-        
+
         // pushed by jet
         let pos_before_jet = pos;
         let jet = input.as_bytes()[jet_ix % input.len()];
@@ -32,17 +41,13 @@ fn run_part1<const N: usize>(input: &str) -> Vec<i64> {
         jet_ix += 1;
         pos = (pos.0 + dx, pos.1);
 
-        fn collision(
-            pos: (i64, i64),
-            block: &Vec<(i64, i64)>,
-            cols: &Vec<i64>,
-        ) -> bool {
+        fn collision(pos: (i64, i64), block: &Vec<(i64, i64)>, cols: &Vec<Vec<bool>>) -> bool {
             pos.0 < 0
                 || block.iter().map(|(x, _)| x + pos.0).max().unwrap() > 6
                 || block
                     .iter()
                     .map(|(x, y)| (x + pos.0, y + pos.1))
-                    .any(|(x, y)| *cols.get(x as usize).unwrap() >= y)
+                    .any(|(x, y)| cols[x as usize][y as usize])
         }
 
         if collision(pos, &block, &cols) {
@@ -53,37 +58,24 @@ fn run_part1<const N: usize>(input: &str) -> Vec<i64> {
         // fall down
         pos = (pos.0, pos.1 - 1);
 
-        fn rock_landed(
-            pos: (i64, i64),
-            block: &Vec<(i64, i64)>,
-            cols: &Vec<i64>,
-        ) -> bool {
+        fn rock_landed(pos: (i64, i64), block: &Vec<(i64, i64)>, cols: &Vec<Vec<bool>>) -> bool {
             block
                 .iter()
                 .map(|(x, y)| (x + pos.0, y + pos.1))
-                .any(|(x, y)| *cols.get(x as usize).unwrap() >= y)
+                .any(|(x, y)| y < 0 || cols[x as usize][y as usize])
         }
 
-        fn update_columns(
-            pos: (i64, i64),
-            block: &Vec<(i64, i64)>,
-            cols: &mut Vec<i64>,
-        ) {
+        fn update_columns(pos: (i64, i64), block: &Vec<(i64, i64)>, cols: &mut Vec<Vec<bool>>) {
             for (x, y) in block {
-                if let Some(max_y) = cols.get_mut((x + pos.0) as usize) {
-                    let y = y + pos.1 + 1;
-                    if y > *max_y {
-                        *max_y = y;
-                    }
-                }
+                cols[(x + pos.0) as usize][(y + pos.1 + 1) as usize] = true;
             }
         }
 
         if rock_landed(pos, &block, &cols) {
             update_columns(pos, block, &mut cols);
             blocks_fallen += 1;
-            pos = (2, 4 + *cols.iter().max().unwrap());
-            println!("Block {blocks_fallen} fallen\nCols: {:?}", cols);
+            pos = (2, 3 + max_height(&cols));
+            println!("Block {blocks_fallen} fallen");
         }
     }
 
@@ -97,7 +89,7 @@ fn run_part2(_input: &str) -> usize {
 fn main() {
     let start_part1 = Instant::now();
     let columns_part_1 = run_part1::<2022>(INPUT);
-    let result_part1 = columns_part_1.iter().max().unwrap();
+    let result_part1 = max_height(&columns_part_1);
     let elapsed_time_part1 = start_part1.elapsed().as_millis();
     println!("Part 1: {:?} in {elapsed_time_part1} ms", result_part1);
 
@@ -115,26 +107,40 @@ mod tests {
 
     #[test]
     fn test_input_part1() {
-        assert_eq!(*run_part1::<2022>(INPUT_TEST).iter().max().unwrap(), 3068);
+        assert_eq!(max_height(&run_part1::<2022>(INPUT_TEST)), 3068);
     }
 
     #[test]
     fn test_input_part1_real() {
-        assert!(*run_part1::<2022>(INPUT).iter().max().unwrap() > 3214);
+        assert!(max_height(&run_part1::<2022>(INPUT)) > 3214);
     }
 
     #[test]
     fn test_input_part1_2_blocks() {
-        assert_eq!(run_part1::<2>(INPUT_TEST), vec![0, 0, 3, 4, 3, 1, 0]);
+        let cols = run_part1::<2>(INPUT_TEST);
+        print_first_rows(&cols, 8);
+        assert_eq!(max_height(&cols), 4);
     }
 
     #[test]
     fn test_input_part1_3_blocks() {
-        assert_eq!(run_part1::<3>(INPUT_TEST), vec![4, 4, 6, 4, 3, 1, 0]);
+        let cols = run_part1::<3>(INPUT_TEST);
+        print_first_rows(&cols, 8);
+        assert_eq!(max_height(&cols), 6);
     }
 
     #[test]
     fn test_input_part2() {
         assert_eq!(run_part2(INPUT_TEST), 0);
+    }
+
+    fn print_first_rows(cols: &Vec<Vec<bool>>, n_rows: usize) {
+        for i in 0..n_rows {
+            let y = n_rows - 1 - i;
+            for col in cols {
+                print!("{}", if col[y] { '#' } else { '.' });
+            }
+            println!();
+        }
     }
 }
