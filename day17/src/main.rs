@@ -13,7 +13,7 @@ fn run_part1<const N: usize>(input: &str) -> Vec<i64> {
 
     let mut blocks_fallen = 0;
     let mut jet_ix = 0;
-    let mut rel_pos: (i64, i64) = (2, 4); // y is relative to max height of columns
+    let mut pos: (i64, i64) = (2, 4);
 
     let mut cols: Vec<i64> = vec![0; 7];
 
@@ -23,47 +23,44 @@ fn run_part1<const N: usize>(input: &str) -> Vec<i64> {
         }
 
         let block = &blocks[blocks_fallen % blocks.len()];
-        let max_height = *cols.iter().max().unwrap();
-
+        
         // pushed by jet
-        let pos_before_jet = rel_pos;
+        let pos_before_jet = pos;
         let jet = input.as_bytes()[jet_ix % input.len()];
         println!("{}", jet as char);
         let dx = if jet == b'<' { -1 } else { 1 };
         jet_ix += 1;
-        rel_pos = (rel_pos.0 + dx, rel_pos.1);
+        pos = (pos.0 + dx, pos.1);
 
         fn collision(
             pos: (i64, i64),
             block: &Vec<(i64, i64)>,
             cols: &Vec<i64>,
-            max_height: i64,
         ) -> bool {
             pos.0 < 0
                 || block.iter().map(|(x, _)| x + pos.0).max().unwrap() > 6
                 || block
                     .iter()
-                    .map(|(x, y)| (x + pos.0, y + pos.1 + max_height))
+                    .map(|(x, y)| (x + pos.0, y + pos.1))
                     .any(|(x, y)| *cols.get(x as usize).unwrap() >= y)
         }
 
-        if collision(rel_pos, &block, &cols, max_height) {
+        if collision(pos, &block, &cols) {
             println!("Collision");
-            rel_pos = pos_before_jet;
+            pos = pos_before_jet;
         }
 
         // fall down
-        rel_pos = (rel_pos.0, rel_pos.1 - 1);
+        pos = (pos.0, pos.1 - 1);
 
         fn rock_landed(
             pos: (i64, i64),
             block: &Vec<(i64, i64)>,
             cols: &Vec<i64>,
-            max_height: i64,
         ) -> bool {
             block
                 .iter()
-                .map(|(x, y)| (x + pos.0, y + pos.1 + max_height))
+                .map(|(x, y)| (x + pos.0, y + pos.1))
                 .any(|(x, y)| *cols.get(x as usize).unwrap() >= y)
         }
 
@@ -71,11 +68,10 @@ fn run_part1<const N: usize>(input: &str) -> Vec<i64> {
             pos: (i64, i64),
             block: &Vec<(i64, i64)>,
             cols: &mut Vec<i64>,
-            max_height: i64,
         ) {
             for (x, y) in block {
                 if let Some(max_y) = cols.get_mut((x + pos.0) as usize) {
-                    let y = y + pos.1 + 1 + max_height;
+                    let y = y + pos.1 + 1;
                     if y > *max_y {
                         *max_y = y;
                     }
@@ -83,10 +79,10 @@ fn run_part1<const N: usize>(input: &str) -> Vec<i64> {
             }
         }
 
-        if rock_landed(rel_pos, &block, &cols, max_height) {
-            update_columns(rel_pos, block, &mut cols, max_height);
+        if rock_landed(pos, &block, &cols) {
+            update_columns(pos, block, &mut cols);
             blocks_fallen += 1;
-            rel_pos = (2, 4);
+            pos = (2, 4 + *cols.iter().max().unwrap());
             println!("Block {blocks_fallen} fallen\nCols: {:?}", cols);
         }
     }
