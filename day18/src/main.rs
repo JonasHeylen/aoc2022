@@ -6,26 +6,17 @@ use std::{
 const INPUT: &str = include_str!("../input.txt");
 
 fn build_cubes_set(input: &str) -> HashSet<(i32, i32, i32)> {
-    let mut cubes = HashSet::new();
-
-    input
-        .lines()
-        .map(|line| {
-            let mut coords = line.split(',').map(|c| {
-                c.parse::<i32>()
-                    .expect(&format!("Invalid coordinate: {}", c))
-            });
-            (
-                coords.next().unwrap(),
-                coords.next().unwrap(),
-                coords.next().unwrap(),
-            )
-        })
-        .for_each(|cube| {
-            cubes.insert(cube);
+    input.lines().map(|line| {
+        let mut coords = line.split(',').map(|c| {
+            c.parse::<i32>()
+                .expect(&format!("Invalid coordinate: {}", c))
         });
-
-    cubes
+        (
+            coords.next().unwrap(),
+            coords.next().unwrap(),
+            coords.next().unwrap(),
+        )
+    }).collect()
 }
 
 fn run_part1(input: &str) -> usize {
