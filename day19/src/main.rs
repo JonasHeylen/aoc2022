@@ -93,40 +93,32 @@ impl State {
     fn build_ore_robot(&self, cost: &Resources) -> Self {
         Self {
             ore_robots: self.ore_robots + 1,
-            clay_robots: self.clay_robots,
-            obsidian_robots: self.obsidian_robots,
-            geode_cracking_robots: self.geode_cracking_robots,
             resources: self.resources - *cost,
+            ..*self
         }
     }
 
     fn build_clay_robot(&self, cost: &Resources) -> Self {
         Self {
-            ore_robots: self.ore_robots,
             clay_robots: self.clay_robots + 1,
-            obsidian_robots: self.obsidian_robots,
-            geode_cracking_robots: self.geode_cracking_robots,
             resources: self.resources - *cost,
+            ..*self
         }
     }
 
     fn build_obsidian_robot(&self, cost: &Resources) -> Self {
         Self {
-            ore_robots: self.ore_robots,
-            clay_robots: self.clay_robots,
             obsidian_robots: self.obsidian_robots + 1,
-            geode_cracking_robots: self.geode_cracking_robots,
             resources: self.resources - *cost,
+            ..*self
         }
     }
 
     fn build_geode_cracking_robot(&self, cost: &Resources) -> Self {
         Self {
-            ore_robots: self.ore_robots,
-            clay_robots: self.clay_robots,
-            obsidian_robots: self.obsidian_robots,
             geode_cracking_robots: self.geode_cracking_robots + 1,
             resources: self.resources - *cost,
+            ..*self
         }
     }
 }
