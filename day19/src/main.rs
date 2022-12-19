@@ -6,14 +6,14 @@ const INPUT: &str = include_str!("../input.txt");
 
 #[derive(Clone, Copy, Debug, Default, Eq, Hash, PartialEq)]
 struct Resources {
-    ore: u8,
-    clay: u8,
-    obsidian: u8,
-    cracked_geodes: u8,
+    ore: u16,
+    clay: u16,
+    obsidian: u16,
+    cracked_geodes: u16,
 }
 
 impl Resources {
-    fn new(ore: u8, clay: u8, obsidian: u8, cracked_geodes: u8) -> Self {
+    fn new(ore: u16, clay: u16, obsidian: u16, cracked_geodes: u16) -> Self {
         Self {
             ore,
             clay,
@@ -72,10 +72,10 @@ struct Blueprint {
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 struct State {
-    ore_robots: u8,
-    clay_robots: u8,
-    obsidian_robots: u8,
-    geode_cracking_robots: u8,
+    ore_robots: u16,
+    clay_robots: u16,
+    obsidian_robots: u16,
+    geode_cracking_robots: u16,
     resources: Resources,
 }
 
@@ -153,7 +153,7 @@ fn parse_cost(cost: &str) -> Resources {
     }
 }
 
-fn find_maximum_open_geodes(blueprint: &Blueprint, minutes: usize) -> u8 {
+fn find_maximum_open_geodes(blueprint: &Blueprint, minutes: usize) -> u16 {
     let mut states = Vec::with_capacity(134_217_728);
     states.push(State::initial());
     let mut new_states = HashSet::with_capacity(134_217_728);
@@ -170,9 +170,7 @@ fn find_maximum_open_geodes(blueprint: &Blueprint, minutes: usize) -> u8 {
             let mut next_states = Vec::with_capacity(5);
             // build robots
             next_states.push(state.clone()); // or build nothing
-            if state.ore_robots < max_ore_per_min
-                && state.resources >= blueprint.cost_ore_robot
-            {
+            if state.ore_robots < max_ore_per_min && state.resources >= blueprint.cost_ore_robot {
                 next_states.push(state.build_ore_robot(&blueprint.cost_ore_robot));
             }
             if state.clay_robots < blueprint.cost_obsidian_robot.clay
@@ -191,21 +189,28 @@ fn find_maximum_open_geodes(blueprint: &Blueprint, minutes: usize) -> u8 {
             }
             // collect resources
             for next_state in &mut next_states {
-                next_state.resources.ore = next_state.resources.ore + state.ore_robots;
-                next_state.resources.clay = next_state.resources.clay + state.clay_robots;
+                next_state.resources.ore = (next_state.resources.ore + state.ore_robots)
+                    .min((max_ore_per_min as usize).saturating_mul(minutes - min - 1) as u16); // clamp to limit state space
+                next_state.resources.clay = (next_state.resources.clay + state.clay_robots).min(
+                    (blueprint.cost_obsidian_robot.clay as usize).saturating_mul(minutes - min - 1)
+                        as u16,
+                );
                 next_state.resources.obsidian =
-                    next_state.resources.obsidian + state.obsidian_robots;
+                    (next_state.resources.obsidian + state.obsidian_robots).min(
+                        (blueprint.cost_geode_cracking_robot.obsidian as usize)
+                            .saturating_mul(minutes - min - 1) as u16,
+                    );
                 next_state.resources.cracked_geodes =
                     next_state.resources.cracked_geodes + state.geode_cracking_robots;
             }
             new_states.extend(next_states);
         }
         states = new_states.drain().collect();
-        println!(
-            "After minute {} there are {} possible states.",
-            min + 1,
-            states.len()
-        );
+        // println!(
+        //     "After minute {} there are {} possible states.",
+        //     min + 1,
+        //     states.len()
+        // );
     }
     states
         .iter()
